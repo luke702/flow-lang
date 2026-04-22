@@ -1,115 +1,67 @@
-# Flow v0 — 语言设计与纸面解释器
 
-本文档同时承担：**语言设计说明**、**可机械执行的操作语义**（不依赖 Java/Python 等**实现语言**），以及 **demo 的逐步求值轨迹**。  
-若要在真实计算机上“一键运行”，必须选用**某一种**实现语言编写解释器；本文刻意不把实现绑定到任何编程语言。
 
----
+# Flow (v0) — C reference interpreter
 
-## 1. 对象语言与元语言
+This directory contains a **C** implementation of a small **Flow** subset (lexer, parser, tree-walking interpreter).
 
-| 概念 | 含义 |
-|------|------|
-| **对象语言** | Flow 本身：你写的 `.flow` 源码。 |
-| **元语言** | 描述“Flow 如何执行”的自然语言 + 数学式规则（本 Markdown）。 |
-| **实现语言** | 用来写解释器源码的语言；**本文不包含**实现语言写成的程序。 |
+## Build
 
----
+**Windows (GCC / MSYS2 MinGW, recommended here):** compile each translation unit separately, then link (some MinGW builds mis-assemble when all `.c` files are passed in one command):
 
-## 2. v0 语法片段（与 demo 相关）
+```bat
+build.bat
+```
 
-- **字面量**：整数、字符串、`true` / `false` / `nil`
-- **变量**：`let name = expr`
-- **块**：`{ stmt* }`
-- **函数**：`func name(id, …) { stmt* }`，`return expr`（可多值，demo 用单值）
-- **表达式**：算术 `+ - * /`；比较（本 demo 未用）；调用 `f(a,b)`；成员 `obj.map(…)`（见下）
-- **`match`**（表达式，结果参与赋值）：`match e { pat => expr , … }`，`pat` 为整数字面量或 `_`
-- **列表与方法链（本 demo 假定）**：`[1,2,3]`；`list.map(x => expr)` 为内置实例方法（v0 可视为 `std` 对 `list` 的扩展）
+Or manually:
 
-**整除**：两操作数均为 `int` 时，`/` 为向零截断的整数除法。
+```bat
+mkdir build 2>nul
+gcc -std=c11 -O2 -I include -c src\main.c -o build\main.o
+gcc -std=c11 -O2 -I include -c src\lexer.c -o build\lexer.o
+gcc -std=c11 -O2 -I include -c src\parse.c -o build\parse.o
+gcc -std=c11 -O2 -I include -c src\ast.c -o build\ast.o
+gcc -std=c11 -O2 -I include -c src\value.c -o build\value.o
+gcc -std=c11 -O2 -I include -c src\interp.c -o build\interp.o
+gcc -std=c11 -O2 -I include -c src\pathutil.c -o build\pathutil.o
+gcc -o flow.exe build\main.o build\lexer.o build\parse.o build\ast.o build\value.o build\interp.o build\pathutil.o
+```
 
-**入口（C 参考解释器）**：每个 `.flow` 文件有且仅有一个顶层 `func main()`（无参数）。运行脚本时先处理 `import`，再注册其余顶层声明，最后执行一次 `main()`；不允许顶层表达式语句。被 `import` 的库同样必须含唯一的 `main`，但加载库时不会调用其 `main`。
+**CMake** (if `cmake` is on your `PATH`):
 
----
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+```
 
-## 3. 程序状态（抽象机）
+**GNU Make** (if `make` is available):
 
-纸面解释器在每一步操作下列结构：
+```bash
+make
+```
 
-1. **环境** `ρ`：从**变量名**到**值**的有限映射（函数体、块级作用域可嵌套；v0 用**栈式环境**或**链表父环境**，与常见块作用域一致）。
-2. **值** `v`：
-   - `int`、`float`、`bool`、`string`、`nil`
-   - `list`：有限序列 `[v0,…,vn]`
-   - `closure`：`⟨参数名列表, 函数体语句列表, 捕获环境⟩`
-3. **输出缓冲** `O`：字符串序列（`println` 追加一行）。
-4. **求值上下文**：当前在求**语句**还是**表达式**；`return` 携带返回值并跳出函数（v0 用**非局部跳转**描述即可）。
+The executable is `flow` or `flow.exe` in the project root (or under `build/` when using CMake).
 
-**无**全局堆的精细模型时，可把 `map` 实现为：产生**新列表**，不修改原列表（与先前“值语义”一致）。
+## Install / package
 
----
+```bash
+cmake --install build --prefix dist
+```
 
-## 4. 小步语义（节选）
+This copies the `flow` binary to `dist/bin`. Zip that folder for a portable binary package.
 
-用判断形式写“一步”：`⟨ρ, e⟩ ⇒ ⟨ρ', v⟩`（表达式），或 `⟨ρ, s⟩ → ⟨ρ', O'⟩`（语句）。以下为**示意规则**（完整版可补全所有构造）。
+## Program entry (`main`)
 
-### 4.1 算术（两整数）
+Every `.flow` file must define **exactly one** top-level `func main()` with **no parameters**. The interpreter loads imports first, then registers other top-level `func` / `let` / `library`, then **calls `main()` once**. Top-level expression statements (e.g. bare `println(...)`) are **not** allowed—put them inside `main`.
 
-- 若 `e1` 求值为 `int n1`，`e2` 为 `int n2`，且 `op` 为 `+ - * %`，按整数运算；若为 `/`，结果为 `trunc(n1/n2)`（向零）。
+Imported modules follow the same rule (one `main`) but **`main` is not called** when loading a library.
 
-### 4.2 `let`
+## Run demo
 
-- `let x = e`：先求 `e` 得 `v`，再 `ρ' = ρ[x ↦ v]`。
+```bash
+./build/flow examples/demo.flow
+```
 
-### 4.3 函数与调用
-
-- `func f(x,y){ body }`：将 `f` 绑定为 `closure ⟨[x,y], body, ρ0⟩`，其中 `ρ0` 为定义处环境（支持闭包）。
-- `f(a,b)`：求参数得 `va,vb`，在 `ρ0` 上扩展 `[x↦va, y↦vb]` 执行 `body`，直到 `return v`，结果为 `v`。
-
-### 4.4 `match`
-
-对 `match e { … }`：
-
-1. 求 `e` 得 `v`（demo 中 `v` 为 `int`）。
-2. 自上而下找第一个**模式匹配**：
-   - 字面量 `k`：`v` 为 `int` 且相等则选中。
-   - `_`：总选中。
-3. 对选中分支的 `expr` 求值，即为整个 `match` 的值。
-
-### 4.5 `list.map`
-
-- `items.map(x => e)`：设 `items` 为 `[v0,…,vn]`。对每个 `i`，在环境 `ρ[x↦vi]` 中求 `e` 得 `wi`，结果为 `[w0,…,wn]`。
-
-### 4.6 `println`
-
-- `println(e)`：求 `e` 得 `v`，将 `v` 的**可显示形式**加换行追加到 `O`。
-
----
-
-## 5. Demo 源码
-
-见仓库内 `examples/demo.flow`（合并了原语言示例、`import examples/lib/math.flow` 与 `http_get` 示例；与下节「纸面轨迹」对应的核心片段为 `main()` 内前半段打印，轨迹仍以该段为准）。
-
----
-
-## 6. Demo 的纸面执行轨迹（“解释器运行结果”）
-
-下面固定**初始环境** `ρ0` 仅含内置绑定（`println`、`list.map` 等；此处把 `println` 当原语）。为节省篇幅，只列出关键步骤的**最终值**与**输出**。
-
-| 步骤 | 动作 | 中间结果 / 新绑定 |
-|------|------|---------------------|
-| 1 | `let name = "Flow"` | `name ↦ string "Flow"` |
-| 2 | 定义 `add` | `add ↦ closure` |
-| 3 | 定义 `half` | `half ↦ closure` |
-| 4 | `items = [1,2,3]` | `items ↦ list [1,2,3]`（整数 1、2、3） |
-| 5 | `doubled = items.map(x => x*2)` | 对每个元素：`1→2`，`2→4`，`3→6` → `doubled ↦ [2,4,6]` |
-| 6 | `code = 0` | `code ↦ 0` |
-| 7 | `match code { 0=>…, 1=>…, _=>… }` | `0` 与第一分支匹配 → `label ↦ "ok"` |
-| 8 | `println(name)` | `O` 追加 `"Flow\n"` |
-| 9 | `println(add(40,2))` | `42` → `O` 追加 `"42\n"` |
-| 10 | `println(half(9))` | `9/2` 整除 → `4` → `O` 追加 `"4\n"` |
-| 11 | `println(label)` | `O` 追加 `"ok\n"` |
-| 12 | `println(doubled)` | 列表的显示实现相关；**约定**为可读的 `[2, 4, 6]` 形式，例如 `O` 追加 `"[2, 4, 6]\n"` |
-
-**若采用该显示约定，合并输出为：**
+Expected output:
 
 ```text
 Flow
@@ -119,27 +71,33 @@ ok
 [2, 4, 6]
 ```
 
-这就是**不依赖任何实现语言**的“解释器”在纸面上应得到的结果；任何正确的实现都应在相同语义下产生**等价** observable 行为（至少 `println` 各行一致；列表的字符串化允许微小格式差异但应自洽）。
+## Libraries (`import` / `export` / `library`)
 
----
+- **`library "name";`** — optional metadata at top level (no runtime effect).
+- **`import "path.flow";`** — loads another file; bindings are **not** visible unless exported.
+- **`export func …` / `export let …`** — only top-level exports are merged into the importer’s environment.
+- Resolution: path relative to the **current script’s directory**, then each entry in **`FLOW_PATH`** (use `;` as separator on Windows, `:` on Unix).
 
-## 7. 与“必须用某种语言写解释器”的关系
+Builtin commands:
 
-- **本文档级解释器**：由**规则 + 手工轨迹**构成，满足“运行 demo 的语义效果”，但不在 CPU 上执行。
-- **可执行解释器**：必须用**某一种**实现语言编写；若你之后允许**一种**元语言（例如只接受 Python 或只接受 Rust），可在该约束下再写**最小参考实现**，与本文规则对照测试。
+```bash
+flow libs
+```
 
----
+The library used by the demo lives under `examples/lib/` (e.g. `examples/lib/math.flow`).
 
-## 8. 自检清单（实现者可对照）
+Imported modules keep their syntax tree in memory for the lifetime of the process so that exported functions remain callable.
 
-- [ ] 每个 `.flow` 恰好一个无参 `main()`；入口仅通过调用 `main()` 执行程序逻辑（无顶层表达式语句）。
-- [ ] `int / int` 为向零整除（`half(9)` 为 `4`）。
-- [ ] `match` 选第一个匹配分支，`0` 匹配 `"ok"`。
-- [ ] `map` 不修改原列表，得到新列表 `[2,4,6]`。
-- [ ] `println` 行与上节一致。
+## HTTP GET
 
----
+Builtin `http_get(url)` runs **`curl`** (must be on `PATH`; Windows 10+ includes `curl.exe`) and returns the response body as a string.
 
-## 9. C 参考解释器（本仓库）
+The same `examples/demo.flow` also calls `http_get` at the end (needs network).
 
-项目根目录下的 `src/*.c` 为 **C** 实现的词法/语法/解释器；`examples/demo.flow` 可直接运行。构建方式见 `README.md`（`build.bat` 或 CMake）。该实现是 **v0 子集**，与本文档在细节上可能略有差异，以 `demo.flow` 的 observable 行为为准。
+## Notes
+
+- Statement terminators `;` are **optional** everywhere (you may omit them before another statement or `}`).
+- `int / int` uses truncating integer division (toward zero), matching the language design.
+- `list.map(lambda)` is implemented as a special case on the interpreter (method-style call).
+
+See `docs/flow-v0-spec-and-semantics.md` for the broader design context.
