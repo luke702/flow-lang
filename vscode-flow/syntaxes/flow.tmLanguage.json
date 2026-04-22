@@ -1,0 +1,111 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Flow",
+  "scopeName": "source.flow",
+  "patterns": [
+    { "include": "#doubleQuotedString" },
+    { "include": "#backtickString" },
+    { "include": "#lineComment" },
+    { "include": "#blockComment" },
+    { "include": "#number" },
+    { "include": "#fatArrow" },
+    { "include": "#funcDecl" },
+    { "include": "#structDecl" },
+    { "include": "#keywords" },
+    { "include": "#builtinCalls" },
+    { "include": "#operators" },
+    { "include": "#matchWildcard" }
+  ],
+  "repository": {
+    "doubleQuotedString": {
+      "name": "string.quoted.double.flow",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.flow",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "backtickString": {
+      "name": "string.quoted.other.flow",
+      "begin": "`",
+      "end": "`",
+      "patterns": [
+        {
+          "name": "constant.character.escape.flow",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "lineComment": {
+      "name": "comment.line.double-slash.flow",
+      "begin": "//",
+      "end": "$"
+    },
+    "blockComment": {
+      "name": "comment.block.flow",
+      "begin": "/\\*",
+      "end": "\\*/"
+    },
+    "number": {
+      "name": "constant.numeric.flow",
+      "match": "\\b\\d+(\\.\\d+)?([eE][+-]?\\d+)?\\b"
+    },
+    "fatArrow": {
+      "name": "keyword.operator.arrow.flow",
+      "match": "=>"
+    },
+    "funcDecl": {
+      "match": "(?<!\\w)(func)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.declaration.flow" },
+        "2": { "name": "entity.name.function.flow" }
+      }
+    },
+    "structDecl": {
+      "match": "(?<!\\w)(struct)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.declaration.flow" },
+        "2": { "name": "entity.name.type.flow" }
+      }
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.flow",
+          "match": "(?<!\\w)(?:if|else|while|for|in|match|return|break|continue)(?!\\w)"
+        },
+        {
+          "name": "keyword.declaration.flow",
+          "match": "(?<!\\w)(?:let|import|export|library)(?!\\w)"
+        },
+        {
+          "name": "keyword.other.flow",
+          "match": "(?<!\\w)(?:go|make|close)(?!\\w)"
+        },
+        {
+          "name": "storage.type.flow",
+          "match": "(?<!\\w)(?:int|float|bool|string|chan|list|dict)(?!\\w)"
+        },
+        {
+          "name": "constant.language.flow",
+          "match": "(?<!\\w)(?:true|false|nil)(?!\\w)"
+        }
+      ]
+    },
+    "builtinCalls": {
+      "name": "support.function.builtin.flow",
+      "match": "(?<!\\w)(?:println|http_get)(?=\\s*\\()"
+    },
+    "operators": {
+      "name": "keyword.operator.flow",
+      "match": "(==|!=|<=|>=|&&|\\|\\||[+\\-*/%=<>!?:])"
+    },
+    "matchWildcard": {
+      "name": "constant.language.wildcard.flow",
+      "match": "\\b_\\s*=>"
+    }
+  }
+}

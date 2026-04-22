@@ -1,0 +1,14 @@
+library "flow.demo.math";
+
+export func add(a, b) {
+    return a + b;
+}
+
+export let TAU = 6;
+
+func hidden() {
+    return 1;
+}
+
+func main() {
+}

@@ -1,0 +1,32 @@
+// Combined examples: language demo, imported lib, HTTP (needs curl + network).
+import "lib/math.flow";
+
+func half(n) {
+    return n / 2
+}
+
+func main() {
+    // --- literals, match, map, local helpers ---
+    let name = "Flow"
+    let items = [1, 2, 3]
+    let doubled = items.map(x => x * 2)
+    let code = 0
+    let label = match code {
+        0 => "ok",
+        1 => "error",
+        _ => "unknown",
+    };
+    println(name)
+    println(add(40, 2))
+    println(half(9))
+    println(label)
+    println(doubled)
+
+    // --- export from lib/math.flow ---
+    println(TAU)
+
+    // --- HTTP GET (may fail without network / curl) ---
+    let url = "https://www.baidu.com"
+    let body = http_get(url)
+    println(body)
+}

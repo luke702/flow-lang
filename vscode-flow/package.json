@@ -1,0 +1,43 @@
+{
+  "name": "vscode-flow",
+  "displayName": "Flow",
+  "description": "Syntax highlighting, Go to Definition, Find All References, clickable import paths for .flow.",
+  "version": "0.2.2",
+  "publisher": "flow-lang",
+  "license": "MIT",
+  "main": "./extension.js",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": ["Programming Languages"],
+  "keywords": ["flow", "language"],
+  "activationEvents": ["onLanguage:flow"],
+  "contributes": {
+    "configuration": {
+      "title": "Flow",
+      "properties": {
+        "flow.importSearchPath": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Extra directories searched when resolving import \"...\" (after the current file's directory). Same role as environment variable FLOW_PATH."
+        }
+      }
+    },
+    "languages": [
+      {
+        "id": "flow",
+        "aliases": ["Flow"],
+        "extensions": [".flow"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "flow",
+        "scopeName": "source.flow",
+        "path": "./syntaxes/flow.tmLanguage.json"
+      }
+    ]
+  }
+}
