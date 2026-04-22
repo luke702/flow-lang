@@ -85,7 +85,7 @@
 
 ## 5. Demo 源码
 
-见仓库内 `examples/demo.flow`（合并了原语言示例、`import examples/lib/math.flow` 与 `http_get` 示例；与下节「纸面轨迹」对应的核心片段为 `main()` 内前半段打印，轨迹仍以该段为准）。
+见仓库内 `examples/demo.flow`
 
 ---
 
